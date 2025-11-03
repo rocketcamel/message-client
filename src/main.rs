@@ -58,12 +58,12 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async move {
         network::NetworkTask::new().run(req_rx, resp_tx).await;
     });
-    if let Err(e) = req_tx.send(NetworkRequest::Authenticate(AuthRequest {
-        name: "example".to_string(),
-        password: std::env::var("PASSWORD").expect("\"PASSWORD\" environment variable"),
-    })) {
-        tracing::error!("error sending authentication request: {e}")
-    }
+    // if let Err(e) = req_tx.send(NetworkRequest::Authenticate(AuthRequest {
+    //     name: "example".to_string(),
+    //     password: std::env::var("PASSWORD").expect("\"PASSWORD\" environment variable"),
+    // })) {
+    //     tracing::error!("error sending authentication request: {e}")
+    // }
 
     loop {
         terminal.draw(|f| {
@@ -126,6 +126,8 @@ async fn main() -> std::io::Result<()> {
             Ok(InputEvent::ClearInput) => {
                 app_state.clear_input();
             }
+            Ok(InputEvent::NextField) => {}
+            Ok(InputEvent::PrevField) => {}
             Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {
                 break;

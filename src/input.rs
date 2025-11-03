@@ -13,6 +13,8 @@ pub enum InputEvent {
     ScrollUp,
     ScrollDown,
     ClearInput,
+    NextField,
+    PrevField,
 }
 
 pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
@@ -34,6 +36,8 @@ pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
                 KeyCode::Up => Some(InputEvent::ScrollUp),
                 KeyCode::Down => Some(InputEvent::ScrollDown),
                 KeyCode::Esc => Some(InputEvent::ClearInput),
+                KeyCode::Tab => Some(InputEvent::NextField),
+                KeyCode::BackTab => Some(InputEvent::PrevField),
                 _ => None,
             };
 

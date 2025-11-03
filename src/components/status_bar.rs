@@ -71,6 +71,13 @@ impl<'a> StatusBar<'a> {
             ),
             Span::styled(" Clear ", Style::default().fg(Color::White)),
             Span::styled(
+                "[Ctrl+S]",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" Config ", Style::default().fg(Color::White)),
+            Span::styled(
                 "[Ctrl+C/q]",
                 Style::default()
                     .fg(Color::Cyan)
