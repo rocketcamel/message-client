@@ -86,7 +86,6 @@ impl Config {
 
         let size = f.size();
 
-        // Create centered popup area
         let popup_width = size.width.saturating_sub(10).min(70);
         let popup_height = 15;
         let popup_x = (size.width.saturating_sub(popup_width)) / 2;
@@ -99,10 +98,8 @@ impl Config {
             height: popup_height,
         };
 
-        // Clear the area behind the popup
         f.render_widget(Clear, popup_area);
 
-        // Create main popup block
         let popup_block = Block::default()
             .title(" Configuration ")
             .title_alignment(Alignment::Center)
@@ -116,7 +113,6 @@ impl Config {
 
         f.render_widget(popup_block, popup_area);
 
-        // Create layout inside popup
         let inner_area = Rect {
             x: popup_area.x + 2,
             y: popup_area.y + 2,
@@ -134,7 +130,6 @@ impl Config {
             ])
             .split(inner_area);
 
-        // Render username field
         self.render_field(
             f,
             chunks[0],
@@ -144,7 +139,6 @@ impl Config {
             false,
         );
 
-        // Render password field (masked)
         self.render_field(
             f,
             chunks[1],
@@ -154,7 +148,6 @@ impl Config {
             true,
         );
 
-        // Render server URL field
         self.render_field(
             f,
             chunks[2],
@@ -164,7 +157,6 @@ impl Config {
             false,
         );
 
-        // Render help text
         let help_text = vec![
             Spans::from(""),
             Spans::from(vec![

@@ -1,11 +1,17 @@
 use crate::components::{ConnectionStatus, Message, MessageSender};
 
+pub enum FocusedItem {
+    Main,
+    Config,
+}
+
 pub struct AppState {
     pub messages: Vec<Message>,
     pub input_buffer: String,
     pub cursor_position: usize,
     pub scroll_offset: u16,
     pub connection_status: ConnectionStatus,
+    pub focused_item: FocusedItem,
 }
 
 impl AppState {
@@ -23,6 +29,7 @@ impl AppState {
             cursor_position: 0,
             scroll_offset: 0,
             connection_status: ConnectionStatus::Disconnected,
+            focused_item: FocusedItem::Main,
         }
     }
 

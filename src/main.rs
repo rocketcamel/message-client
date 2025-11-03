@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -19,7 +19,7 @@ use tui::{
 use crate::{
     components::{ConnectionStatus, InputBox, Message, MessageList, MessageSender, StatusBar},
     network::AuthRequest,
-    state::AppState,
+    state::{AppState, FocusedItem},
 };
 use crate::{
     input::InputEvent,
@@ -33,7 +33,7 @@ mod state;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let mut app_state = AppState::new();
+    let app_state = Rc::new(RefCell::new(AppState::new()));
 
     let (input_tx, mut input_rx) = mpsc::unbounded_channel::<InputEvent>();
     let (req_tx, req_rx) = mpsc::unbounded_channel::<NetworkRequest>();
@@ -65,6 +65,10 @@ async fn main() -> std::io::Result<()> {
     //     tracing::error!("error sending authentication request: {e}")
     // }
 
+    let message_list = MessageList::new(app_state.clone());
+    let input_box = InputBox::new(app_state.clone());
+    let status_bar = StatusBar::new(app_state.clone());
+
     loop {
         terminal.draw(|f| {
             let size = f.size();
@@ -85,16 +89,12 @@ async fn main() -> std::io::Result<()> {
                 .border_style(Style::default().fg(Color::Blue));
             f.render_widget(title_block, chunks[0]);
 
-            let message_list = MessageList::new(&app_state.messages, app_state.scroll_offset);
             message_list.render(f, chunks[1]);
-
-            let input_box = InputBox::new(&app_state.input_buffer, app_state.cursor_position);
             input_box.render(f, chunks[2]);
-
-            let status_bar = StatusBar::new(&app_state.connection_status, app_state.messages.len());
             status_bar.render(f, chunks[3]);
         })?;
 
+        let mut app_state = app_state.borrow_mut();
         match input_rx.try_recv() {
             Ok(InputEvent::Quit) => {
                 break;
@@ -126,7 +126,10 @@ async fn main() -> std::io::Result<()> {
             Ok(InputEvent::ClearInput) => {
                 app_state.clear_input();
             }
-            Ok(InputEvent::NextField) => {}
+            Ok(InputEvent::NextField) => match app_state.focused_item {
+                FocusedItem::Main => {}
+                FocusedItem::Config => {}
+            },
             Ok(InputEvent::PrevField) => {}
             Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {

@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use tui::{
     Frame,
     backend::Backend,
@@ -7,25 +9,24 @@ use tui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
+use crate::state::AppState;
+
 use super::message::{Message, MessageSender};
 
-pub struct MessageList<'a> {
-    messages: &'a [Message],
-    scroll_offset: u16,
+pub struct MessageList {
+    app_state: Rc<RefCell<AppState>>,
 }
 
-impl<'a> MessageList<'a> {
-    pub fn new(messages: &'a [Message], scroll_offset: u16) -> Self {
-        Self {
-            messages,
-            scroll_offset,
-        }
+impl MessageList {
+    pub fn new(app_state: Rc<RefCell<AppState>>) -> Self {
+        Self { app_state }
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
         let mut text_lines = Vec::new();
 
-        for message in self.messages {
+        let state = self.app_state.borrow();
+        for message in &state.messages {
             let timestamp_style = Style::default()
                 .fg(Color::DarkGray)
                 .add_modifier(Modifier::DIM);
@@ -72,7 +73,7 @@ impl<'a> MessageList<'a> {
         let paragraph = Paragraph::new(text)
             .block(block)
             .wrap(Wrap { trim: false })
-            .scroll((self.scroll_offset, 0));
+            .scroll((state.scroll_offset, 0));
 
         f.render_widget(paragraph, area);
     }

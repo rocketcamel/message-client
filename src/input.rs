@@ -26,7 +26,6 @@ pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(InputEvent::Quit)
                 }
-                KeyCode::Char('q') if key.modifiers.is_empty() => Some(InputEvent::Quit),
                 KeyCode::Enter => Some(InputEvent::SendMessage),
                 KeyCode::Char(c) => Some(InputEvent::CharInput(c)),
                 KeyCode::Backspace => Some(InputEvent::Backspace),

@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use tui::{
     Frame,
     backend::Backend,
@@ -7,17 +9,17 @@ use tui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-pub struct InputBox<'a> {
-    input: &'a str,
-    cursor_position: usize,
+use crate::state::AppState;
+
+pub struct InputBox {
     is_focused: bool,
+    app_state: Rc<RefCell<AppState>>,
 }
 
-impl<'a> InputBox<'a> {
-    pub fn new(input: &'a str, cursor_position: usize) -> Self {
+impl InputBox {
+    pub fn new(app_state: Rc<RefCell<AppState>>) -> Self {
         Self {
-            input,
-            cursor_position,
+            app_state,
             is_focused: true,
         }
     }
@@ -28,6 +30,7 @@ impl<'a> InputBox<'a> {
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        let state = self.app_state.borrow();
         let border_style = if self.is_focused {
             Style::default()
                 .fg(Color::Green)
@@ -36,7 +39,7 @@ impl<'a> InputBox<'a> {
             Style::default().fg(Color::DarkGray)
         };
 
-        let input_text = if self.input.is_empty() {
+        let input_text = if state.input_buffer.is_empty() {
             Spans::from(vec![Span::styled(
                 "Type your message here...",
                 Style::default()
@@ -44,14 +47,15 @@ impl<'a> InputBox<'a> {
                     .add_modifier(Modifier::ITALIC),
             )])
         } else {
-            // Split text at cursor position to show cursor
-            let before_cursor = &self.input[..self.cursor_position.min(self.input.len())];
-            let after_cursor = &self.input[self.cursor_position.min(self.input.len())..];
+            let before_cursor =
+                &state.input_buffer[..state.cursor_position.min(state.input_buffer.len())];
+            let after_cursor =
+                &state.input_buffer[state.cursor_position.min(state.input_buffer.len())..];
 
-            let cursor_char = if self.cursor_position >= self.input.len() {
+            let cursor_char = if state.cursor_position >= state.input_buffer.len() {
                 " "
             } else {
-                &self.input[self.cursor_position..self.cursor_position + 1]
+                &state.input_buffer[state.cursor_position..state.cursor_position + 1]
             };
 
             Spans::from(vec![
@@ -67,7 +71,7 @@ impl<'a> InputBox<'a> {
             ])
         };
 
-        let char_count = format!(" {}/{} ", self.input.len(), 500);
+        let char_count = format!(" {}/{} ", state.input_buffer.len(), 500);
         let title = if self.is_focused {
             format!("Input (Active){}", char_count)
         } else {

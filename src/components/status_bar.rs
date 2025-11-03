@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use tui::{
     Frame,
     backend::Backend,
@@ -7,6 +9,8 @@ use tui::{
     widgets::Paragraph,
 };
 
+use crate::state::AppState;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConnectionStatus {
     Connected,
@@ -15,21 +19,18 @@ pub enum ConnectionStatus {
     Error(String),
 }
 
-pub struct StatusBar<'a> {
-    connection_status: &'a ConnectionStatus,
-    message_count: usize,
+pub struct StatusBar {
+    app_state: Rc<RefCell<AppState>>,
 }
 
-impl<'a> StatusBar<'a> {
-    pub fn new(connection_status: &'a ConnectionStatus, message_count: usize) -> Self {
-        Self {
-            connection_status,
-            message_count,
-        }
+impl StatusBar {
+    pub fn new(app_state: Rc<RefCell<AppState>>) -> Self {
+        Self { app_state }
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
-        let (status_text, status_color) = match &self.connection_status {
+        let state = self.app_state.borrow();
+        let (status_text, status_color) = match &state.connection_status {
             ConnectionStatus::Connected => ("Connected", Color::Green),
             ConnectionStatus::Disconnected => ("Disconnected", Color::Red),
             ConnectionStatus::Connecting => ("Connecting...", Color::Yellow),
@@ -45,7 +46,7 @@ impl<'a> StatusBar<'a> {
             ),
             Span::styled(" | ", Style::default().fg(Color::DarkGray)),
             Span::styled(
-                format!("{} messages", self.message_count),
+                format!("{} messages", state.messages.len()),
                 Style::default().fg(Color::White),
             ),
             Span::styled(" | ", Style::default().fg(Color::DarkGray)),
@@ -78,7 +79,7 @@ impl<'a> StatusBar<'a> {
             ),
             Span::styled(" Config ", Style::default().fg(Color::White)),
             Span::styled(
-                "[Ctrl+C/q]",
+                "[Ctrl+C]",
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
