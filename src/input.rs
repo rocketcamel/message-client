@@ -1,24 +1,49 @@
-use crossterm::event::{Event, EventStream, KeyCode, KeyEvent};
+use crossterm::event::{Event, EventStream, KeyCode, KeyModifiers};
 use futures::StreamExt;
 use tokio::sync::mpsc;
 
 pub enum InputEvent {
     Quit,
-    Key(KeyEvent),
+    SendMessage,
+    CharInput(char),
+    Backspace,
+    Delete,
+    CursorLeft,
+    CursorRight,
+    ScrollUp,
+    ScrollDown,
+    ClearInput,
 }
 
-pub async fn handle_input(
-    input_tx: mpsc::UnboundedSender<InputEvent>,
-) -> mpsc::UnboundedReceiver<InputEvent> {
-    tokio::spawn(async move {
-        let mut event_stream = EventStream::new();
+pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
+    let mut event_stream = EventStream::new();
 
-        loop {
-            if let Some(Ok(Event::Key(key))) = event_stream.next().await {
-                match key.code {
-                    KeyCode::Char('q') => {}
+    loop {
+        if let Some(Ok(Event::Key(key))) = event_stream.next().await {
+            let event = match key.code {
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(InputEvent::Quit)
+                }
+                KeyCode::Char('q') if key.modifiers.is_empty() => Some(InputEvent::Quit),
+                KeyCode::Enter => Some(InputEvent::SendMessage),
+                KeyCode::Char(c) => Some(InputEvent::CharInput(c)),
+                KeyCode::Backspace => Some(InputEvent::Backspace),
+                KeyCode::Delete => Some(InputEvent::Delete),
+                KeyCode::Left => Some(InputEvent::CursorLeft),
+                KeyCode::Right => Some(InputEvent::CursorRight),
+                KeyCode::Up => Some(InputEvent::ScrollUp),
+                KeyCode::Down => Some(InputEvent::ScrollDown),
+                KeyCode::Esc => Some(InputEvent::ClearInput),
+                _ => None,
+            };
+
+            if let Some(event) = event {
+                let should_quit = matches!(event, InputEvent::Quit);
+                let _ = input_tx.send(event);
+                if should_quit {
+                    break;
                 }
             }
         }
-    })
+    }
 }
