@@ -12,6 +12,7 @@ pub struct AppState {
     pub scroll_offset: u16,
     pub connection_status: ConnectionStatus,
     pub focused_item: FocusedItem,
+    pub session_token: Option<String>,
 }
 
 impl AppState {
@@ -30,7 +31,15 @@ impl AppState {
             scroll_offset: 0,
             connection_status: ConnectionStatus::Disconnected,
             focused_item: FocusedItem::Main,
+            session_token: None,
         }
+    }
+
+    pub fn update_session(&mut self, token: Option<String>) {
+        if token.is_some() {
+            self.connection_status = ConnectionStatus::Connected;
+        }
+        self.session_token = token;
     }
 
     pub fn add_message(&mut self, sender: MessageSender, content: String) {

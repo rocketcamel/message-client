@@ -5,7 +5,7 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, error::TryRecvError};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use tui::{
@@ -39,7 +39,7 @@ async fn main() -> std::io::Result<()> {
 
     let (input_tx, mut input_rx) = mpsc::unbounded_channel::<InputEvent>();
     let (req_tx, req_rx) = mpsc::unbounded_channel::<NetworkRequest>();
-    let (resp_tx, resp_rx) = mpsc::unbounded_channel::<NetworkResponse>();
+    let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<NetworkResponse>();
 
     let tracing_env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
@@ -155,6 +155,16 @@ async fn main() -> std::io::Result<()> {
             Err(mpsc::error::TryRecvError::Disconnected) => {
                 break;
             }
+        }
+
+        match resp_rx.try_recv() {
+            Ok(NetworkResponse::AuthSuccess { token }) => app_state.update_session(Some(token)),
+            Ok(NetworkResponse::AuthError { error }) => {
+                tracing::error!("error authenticating: {error}")
+            }
+            Ok(_) => {}
+            Err(TryRecvError::Empty) => {}
+            Err(TryRecvError::Disconnected) => {}
         }
 
         // tokio::time::sleep(Duration::from_micros(1)).await;
