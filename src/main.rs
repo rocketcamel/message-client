@@ -17,7 +17,9 @@ use tui::{
 };
 
 use crate::{
-    components::{ConnectionStatus, InputBox, Message, MessageList, MessageSender, StatusBar},
+    components::{
+        Config, ConnectionStatus, InputBox, Message, MessageList, MessageSender, StatusBar,
+    },
     network::AuthRequest,
     state::{AppState, FocusedItem},
 };
@@ -68,6 +70,7 @@ async fn main() -> std::io::Result<()> {
     let message_list = MessageList::new(app_state.clone());
     let input_box = InputBox::new(app_state.clone());
     let status_bar = StatusBar::new(app_state.clone());
+    let mut config = Config::new(app_state.clone());
 
     loop {
         terminal.draw(|f| {
@@ -89,6 +92,7 @@ async fn main() -> std::io::Result<()> {
                 .border_style(Style::default().fg(Color::Blue));
             f.render_widget(title_block, chunks[0]);
 
+            config.render(f);
             message_list.render(f, chunks[1]);
             input_box.render(f, chunks[2]);
             status_bar.render(f, chunks[3]);
@@ -102,35 +106,51 @@ async fn main() -> std::io::Result<()> {
             Ok(InputEvent::SendMessage) => {
                 app_state.send_message();
             }
-            Ok(InputEvent::CharInput(c)) => {
-                app_state.insert_char(c);
-            }
-            Ok(InputEvent::Backspace) => {
-                app_state.backspace();
-            }
-            Ok(InputEvent::Delete) => {
-                app_state.delete_char();
-            }
-            Ok(InputEvent::CursorLeft) => {
-                app_state.move_cursor_left();
-            }
-            Ok(InputEvent::CursorRight) => {
-                app_state.move_cursor_right();
-            }
+            Ok(InputEvent::CharInput(c)) => match app_state.focused_item {
+                FocusedItem::Main => app_state.insert_char(c),
+                FocusedItem::Config => config.insert_char(c),
+            },
+            Ok(InputEvent::Backspace) => match app_state.focused_item {
+                FocusedItem::Main => app_state.backspace(),
+                FocusedItem::Config => config.backspace(),
+            },
+            Ok(InputEvent::Delete) => match app_state.focused_item {
+                FocusedItem::Main => app_state.delete_char(),
+                FocusedItem::Config => config.delete_char(),
+            },
+            Ok(InputEvent::CursorLeft) => match app_state.focused_item {
+                FocusedItem::Main => app_state.move_cursor_left(),
+                FocusedItem::Config => config.move_cursor_left(),
+            },
+            Ok(InputEvent::CursorRight) => match app_state.focused_item {
+                FocusedItem::Main => app_state.move_cursor_right(),
+                FocusedItem::Config => config.move_cursor_right(),
+            },
             Ok(InputEvent::ScrollUp) => {
                 app_state.scroll_up();
             }
             Ok(InputEvent::ScrollDown) => {
                 app_state.scroll_down();
             }
-            Ok(InputEvent::ClearInput) => {
-                app_state.clear_input();
+            Ok(InputEvent::Esc) => match app_state.focused_item {
+                FocusedItem::Main => app_state.clear_input(),
+                FocusedItem::Config => {
+                    config.close();
+                    app_state.focused_item = FocusedItem::Main;
+                }
+            },
+            Ok(InputEvent::OpenConfig) => {
+                app_state.focused_item = FocusedItem::Config;
+                config.open();
             }
             Ok(InputEvent::NextField) => match app_state.focused_item {
                 FocusedItem::Main => {}
-                FocusedItem::Config => {}
+                FocusedItem::Config => config.next_field(),
             },
-            Ok(InputEvent::PrevField) => {}
+            Ok(InputEvent::PrevField) => match app_state.focused_item {
+                FocusedItem::Main => {}
+                FocusedItem::Config => config.previous_field(),
+            },
             Err(mpsc::error::TryRecvError::Empty) => {}
             Err(mpsc::error::TryRecvError::Disconnected) => {
                 break;

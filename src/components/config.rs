@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use tui::{
     Frame,
     backend::Backend,
@@ -6,6 +8,8 @@ use tui::{
     text::{Span, Spans},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
+
+use crate::state::AppState;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConfigField {
@@ -19,17 +23,21 @@ pub struct Config {
     password: String,
     server_url: String,
     focused_field: ConfigField,
+    cursor_position: usize,
     is_visible: bool,
+    app_state: Rc<RefCell<AppState>>,
 }
 
 impl Config {
-    pub fn new(username: &str, password: &str) -> Self {
+    pub fn new(app_state: Rc<RefCell<AppState>>) -> Self {
         Self {
-            username: username.to_string(),
-            password: password.to_string(),
+            username: String::new(),
+            password: String::new(),
             server_url: "http://ec2-44-250-68-143.us-west-2.compute.amazonaws.com:8000".to_string(),
             focused_field: ConfigField::Username,
+            cursor_position: 0,
             is_visible: false,
+            app_state,
         }
     }
 
@@ -39,6 +47,7 @@ impl Config {
             ConfigField::Password => ConfigField::ServerUrl,
             ConfigField::ServerUrl => ConfigField::Username,
         };
+        self.cursor_position = self.get_field().len();
     }
 
     pub fn previous_field(&mut self) {
@@ -47,28 +56,64 @@ impl Config {
             ConfigField::Password => ConfigField::Username,
             ConfigField::ServerUrl => ConfigField::Password,
         };
+        self.cursor_position = self.get_field().len();
     }
 
     pub fn insert_char(&mut self, c: char) {
-        match self.focused_field {
-            ConfigField::Username => self.username.push(c),
-            ConfigField::Password => self.password.push(c),
-            ConfigField::ServerUrl => self.server_url.push(c),
-        }
+        let pos = self.cursor_position;
+        let field = self.get_field_mut();
+        field.insert(pos, c);
+        self.cursor_position += 1;
     }
 
     pub fn delete_char(&mut self) {
-        match self.focused_field {
-            ConfigField::Username => {
-                self.username.pop();
-            }
-            ConfigField::Password => {
-                self.password.pop();
-            }
-            ConfigField::ServerUrl => {
-                self.server_url.pop();
-            }
+        let pos = self.cursor_position;
+        let field = self.get_field_mut();
+        if pos < field.len() {
+            field.remove(pos);
         }
+    }
+
+    pub fn backspace(&mut self) {
+        if self.cursor_position > 0 {
+            self.cursor_position -= 1;
+            let pos = self.cursor_position;
+            let field = self.get_field_mut();
+            field.remove(pos);
+        }
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        self.cursor_position = self.cursor_position.saturating_sub(1);
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        let max_pos = self.get_field().len();
+        self.cursor_position = (self.cursor_position + 1).min(max_pos);
+    }
+
+    fn get_field(&self) -> &String {
+        match self.focused_field {
+            ConfigField::Username => &self.username,
+            ConfigField::Password => &self.password,
+            ConfigField::ServerUrl => &self.server_url,
+        }
+    }
+
+    fn get_field_mut(&mut self) -> &mut String {
+        match self.focused_field {
+            ConfigField::Username => &mut self.username,
+            ConfigField::Password => &mut self.password,
+            ConfigField::ServerUrl => &mut self.server_url,
+        }
+    }
+
+    pub fn open(&mut self) {
+        self.is_visible = true;
+    }
+
+    pub fn close(&mut self) {
+        self.is_visible = false;
     }
 
     pub fn clear_field(&mut self) {
@@ -77,6 +122,7 @@ impl Config {
             ConfigField::Password => self.password.clear(),
             ConfigField::ServerUrl => self.server_url.clear(),
         }
+        self.cursor_position = 0;
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>) {
@@ -137,6 +183,7 @@ impl Config {
             &self.username,
             ConfigField::Username,
             false,
+            self.cursor_position,
         );
 
         self.render_field(
@@ -146,6 +193,7 @@ impl Config {
             &self.password,
             ConfigField::Password,
             true,
+            self.cursor_position,
         );
 
         self.render_field(
@@ -155,6 +203,7 @@ impl Config {
             &self.server_url,
             ConfigField::ServerUrl,
             false,
+            self.cursor_position,
         );
 
         let help_text = vec![
@@ -192,6 +241,7 @@ impl Config {
         value: &str,
         field: ConfigField,
         mask: bool,
+        cursor_pos: usize,
     ) {
         let is_focused = self.focused_field == field;
 
@@ -209,7 +259,28 @@ impl Config {
             value.to_string()
         };
 
-        let text = if display_value.is_empty() {
+        let text = if is_focused {
+            let chars: Vec<char> = display_value.chars().collect();
+            if chars.is_empty() || cursor_pos >= chars.len() {
+                let before: String = chars.iter().collect();
+                Spans::from(vec![
+                    Span::styled(before, Style::default().fg(Color::White)),
+                    Span::styled(" ", Style::default().fg(Color::Black).bg(Color::White)),
+                ])
+            } else {
+                let before: String = chars[..cursor_pos].iter().collect();
+                let at_cursor = chars[cursor_pos];
+                let after: String = chars[cursor_pos + 1..].iter().collect();
+                Spans::from(vec![
+                    Span::styled(before, Style::default().fg(Color::White)),
+                    Span::styled(
+                        at_cursor.to_string(),
+                        Style::default().fg(Color::Black).bg(Color::White),
+                    ),
+                    Span::styled(after, Style::default().fg(Color::White)),
+                ])
+            }
+        } else if display_value.is_empty() {
             Spans::from(vec![Span::styled(
                 "...",
                 Style::default()

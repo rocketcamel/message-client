@@ -12,9 +12,10 @@ pub enum InputEvent {
     CursorRight,
     ScrollUp,
     ScrollDown,
-    ClearInput,
+    Esc,
     NextField,
     PrevField,
+    OpenConfig,
 }
 
 pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
@@ -26,6 +27,9 @@ pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(InputEvent::Quit)
                 }
+                KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Some(InputEvent::OpenConfig)
+                }
                 KeyCode::Enter => Some(InputEvent::SendMessage),
                 KeyCode::Char(c) => Some(InputEvent::CharInput(c)),
                 KeyCode::Backspace => Some(InputEvent::Backspace),
@@ -34,7 +38,7 @@ pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
                 KeyCode::Right => Some(InputEvent::CursorRight),
                 KeyCode::Up => Some(InputEvent::ScrollUp),
                 KeyCode::Down => Some(InputEvent::ScrollDown),
-                KeyCode::Esc => Some(InputEvent::ClearInput),
+                KeyCode::Esc => Some(InputEvent::Esc),
                 KeyCode::Tab => Some(InputEvent::NextField),
                 KeyCode::BackTab => Some(InputEvent::PrevField),
                 _ => None,
