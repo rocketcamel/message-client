@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 
 pub enum InputEvent {
     Quit,
-    SendMessage,
+    Submit,
     CharInput(char),
     Backspace,
     Delete,
@@ -30,7 +30,7 @@ pub async fn handle_input(input_tx: mpsc::UnboundedSender<InputEvent>) {
                 KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     Some(InputEvent::OpenConfig)
                 }
-                KeyCode::Enter => Some(InputEvent::SendMessage),
+                KeyCode::Enter => Some(InputEvent::Submit),
                 KeyCode::Char(c) => Some(InputEvent::CharInput(c)),
                 KeyCode::Backspace => Some(InputEvent::Backspace),
                 KeyCode::Delete => Some(InputEvent::Delete),

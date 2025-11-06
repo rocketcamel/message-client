@@ -103,9 +103,7 @@ async fn main() -> std::io::Result<()> {
             Ok(InputEvent::Quit) => {
                 break;
             }
-            Ok(InputEvent::SendMessage) => {
-                app_state.send_message();
-            }
+            Ok(InputEvent::Submit) => app_state.send_message(),
             Ok(InputEvent::CharInput(c)) => match app_state.focused_item {
                 FocusedItem::Main => app_state.insert_char(c),
                 FocusedItem::Config => config.insert_char(c),
@@ -126,12 +124,8 @@ async fn main() -> std::io::Result<()> {
                 FocusedItem::Main => app_state.move_cursor_right(),
                 FocusedItem::Config => config.move_cursor_right(),
             },
-            Ok(InputEvent::ScrollUp) => {
-                app_state.scroll_up();
-            }
-            Ok(InputEvent::ScrollDown) => {
-                app_state.scroll_down();
-            }
+            Ok(InputEvent::ScrollUp) => app_state.scroll_up(),
+            Ok(InputEvent::ScrollDown) => app_state.scroll_down(),
             Ok(InputEvent::Esc) => match app_state.focused_item {
                 FocusedItem::Main => app_state.clear_input(),
                 FocusedItem::Config => {

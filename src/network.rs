@@ -66,7 +66,9 @@ impl NetworkTask {
         while let Some(req) = req_rx.recv().await {
             match req {
                 NetworkRequest::Authenticate(auth_req) => match self.auth(&auth_req).await {
-                    Ok(_) => {}
+                    Ok(token) => {
+                        resp_tx.send(NetworkResponse::AuthSuccess { token }).ok();
+                    }
                     Err(e) => {
                         resp_tx
                             .send(NetworkResponse::AuthError {
