@@ -1,4 +1,7 @@
-use std::error::Error;
+use std::{
+    error::Error,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,8 +16,25 @@ pub enum NetworkRequest {
     RefreshToken,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Token {
+    pub token: String,
+    pub user_id: u32,
+    pub expiry: u64,
+}
+
+impl Token {
+    pub fn is_valid(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        return now >= self.expiry;
+    }
+}
+
 pub enum NetworkResponse {
-    AuthSuccess { token: String },
+    AuthSuccess(Token),
     AuthError { error: String },
     MessageSent,
     MessagesReceived { messages: Vec<Message> },
@@ -34,13 +54,6 @@ enum AuthError {
 pub struct AuthRequest {
     pub name: String,
     pub password: String,
-}
-
-#[derive(Deserialize)]
-struct AuthResponse {
-    token: String,
-    user_id: String,
-    expiry: u32,
 }
 
 pub struct NetworkTask {
@@ -67,12 +80,12 @@ impl NetworkTask {
             match req {
                 NetworkRequest::Authenticate(auth_req) => match self.auth(&auth_req).await {
                     Ok(token) => {
-                        resp_tx.send(NetworkResponse::AuthSuccess { token }).ok();
+                        resp_tx.send(NetworkResponse::AuthSuccess(token)).ok();
                     }
                     Err(e) => {
                         resp_tx
                             .send(NetworkResponse::AuthError {
-                                error: e.to_string(),
+                                error: format!("{e:?}"),
                             })
                             .ok();
                     }
@@ -84,12 +97,11 @@ impl NetworkTask {
         }
     }
 
-    async fn auth(&self, auth_req: &AuthRequest) -> Result<String, AuthError> {
-        let body = serde_json::to_string(auth_req)?;
+    async fn auth(&self, auth_req: &AuthRequest) -> Result<Token, AuthError> {
         let response = self
             .client
             .post(format!("{}/auth/login", self.base_url))
-            .body(body)
+            .json(auth_req)
             .send()
             .await?;
 
@@ -97,12 +109,12 @@ impl NetworkTask {
             let response_text = response.text().await?;
 
             return Err(AuthError::Status {
-                status: e.to_string(),
+                status: format!("{e:?}"),
                 body: response_text,
             });
         }
 
-        let des_response = response.json::<AuthResponse>().await?;
-        Ok(des_response.token)
+        let des_response = response.json::<Token>().await?;
+        Ok(des_response)
     }
 }

@@ -35,6 +35,11 @@ mod state;
 mod tracing_writer;
 
 fn should_reconnect(app_state: &AppState) -> bool {
+    if let Some(token) = &app_state.session_token {
+        let valid = token.is_valid();
+        return !valid;
+    }
+
     match app_state.last_reconnect {
         None => true,
         Some(last_attempt) => last_attempt.elapsed() >= app_state.reconnect_duration,
@@ -177,7 +182,7 @@ async fn main() -> std::io::Result<()> {
         }
 
         match resp_rx.try_recv() {
-            Ok(NetworkResponse::AuthSuccess { token }) => app_state.update_session(Some(token)),
+            Ok(NetworkResponse::AuthSuccess(token)) => app_state.update_session(Some(token)),
             Ok(NetworkResponse::AuthError { error }) => {
                 tracing::error!("error authenticating: {error}")
             }
