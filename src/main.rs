@@ -32,6 +32,14 @@ mod components;
 mod input;
 mod network;
 mod state;
+mod tracing_writer;
+
+fn should_reconnect(app_state: &AppState) -> bool {
+    match app_state.last_reconnect {
+        None => true,
+        Some(last_attempt) => last_attempt.elapsed() >= app_state.reconnect_duration,
+    }
+}
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -45,8 +53,13 @@ async fn main() -> std::io::Result<()> {
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
 
+    let buffered_writer = tracing_writer::BufferedWriter::new();
     tracing_subscriber::registry()
-        .with(fmt::layer())
+        .with(
+            fmt::layer()
+                .with_writer(buffered_writer.clone())
+                .with_ansi(true),
+        )
         .with(tracing_env_filter)
         .init();
 
@@ -151,6 +164,18 @@ async fn main() -> std::io::Result<()> {
             }
         }
 
+        if app_state.connection_status == ConnectionStatus::Disconnected
+            && should_reconnect(&app_state)
+        {
+            req_tx
+                .send(NetworkRequest::Authenticate(AuthRequest {
+                    name: config.username.clone(),
+                    password: config.password.clone(),
+                }))
+                .ok();
+            app_state.last_reconnect = Some(tokio::time::Instant::now())
+        }
+
         match resp_rx.try_recv() {
             Ok(NetworkResponse::AuthSuccess { token }) => app_state.update_session(Some(token)),
             Ok(NetworkResponse::AuthError { error }) => {
@@ -170,6 +195,11 @@ async fn main() -> std::io::Result<()> {
         LeaveAlternateScreen,
         DisableMouseCapture
     )?;
+
+    let logs = buffered_writer.get_contents();
+    if !logs.is_empty() {
+        eprintln!("{}", logs)
+    }
 
     Ok(())
 }

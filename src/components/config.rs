@@ -19,9 +19,9 @@ pub enum ConfigField {
 }
 
 pub struct Config {
-    username: String,
-    password: String,
-    server_url: String,
+    pub username: String,
+    pub password: String,
+    pub server_url: String,
     focused_field: ConfigField,
     cursor_position: usize,
     is_visible: bool,

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::components::{ConnectionStatus, Message, MessageSender};
 
 pub enum FocusedItem {
@@ -13,6 +15,8 @@ pub struct AppState {
     pub connection_status: ConnectionStatus,
     pub focused_item: FocusedItem,
     pub session_token: Option<String>,
+    pub last_reconnect: Option<tokio::time::Instant>,
+    pub reconnect_duration: Duration,
 }
 
 impl AppState {
@@ -32,6 +36,8 @@ impl AppState {
             connection_status: ConnectionStatus::Disconnected,
             focused_item: FocusedItem::Main,
             session_token: None,
+            last_reconnect: None,
+            reconnect_duration: Duration::from_secs(5),
         }
     }
 

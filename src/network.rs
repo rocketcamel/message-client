@@ -22,12 +22,12 @@ pub enum NetworkResponse {
 
 #[derive(Debug, Error)]
 enum AuthError {
-    #[error("error creating auth request")]
-    Creation,
-    #[error("error sending request")]
-    Request(String),
+    #[error("error with request")]
+    Request(#[from] reqwest::Error),
     #[error("error deserializing response")]
-    Deserialize(String),
+    Deserialize(#[from] serde_json::Error),
+    #[error("error with response status: {status}, body: {body}")]
+    Status { status: String, body: String },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -85,17 +85,24 @@ impl NetworkTask {
     }
 
     async fn auth(&self, auth_req: &AuthRequest) -> Result<String, AuthError> {
-        let body = serde_json::to_string(auth_req).map_err(|_| AuthError::Creation)?;
+        let body = serde_json::to_string(auth_req)?;
         let response = self
             .client
             .post(format!("{}/auth/login", self.base_url))
             .body(body)
             .send()
-            .await
-            .map_err(|e| AuthError::Request(e.to_string()))?
-            .json::<AuthResponse>()
-            .await
-            .map_err(|e| AuthError::Deserialize(e.to_string()))?;
-        Ok(response.token)
+            .await?;
+
+        if let Err(e) = response.error_for_status_ref() {
+            let response_text = response.text().await?;
+
+            return Err(AuthError::Status {
+                status: e.to_string(),
+                body: response_text,
+            });
+        }
+
+        let des_response = response.json::<AuthResponse>().await?;
+        Ok(des_response.token)
     }
 }
