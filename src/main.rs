@@ -180,10 +180,14 @@ async fn main() -> std::io::Result<()> {
         }
 
         match resp_rx.try_recv() {
-            Ok(NetworkResponse::AuthSuccess(token)) => app_state.update_session(Some(token)),
-            Ok(NetworkResponse::AuthError { error }) => {
-                tracing::warn!("error authenticating: {error}")
+            Ok(NetworkResponse::Auth(token)) => {
+                app_state.update_session(Some(token));
+                req_tx.send(NetworkRequest::FetchMessages).ok();
             }
+            Ok(NetworkResponse::Error(e)) => {
+                tracing::warn!("{e:?}")
+            }
+            Ok(NetworkResponse::MessagesReceived(messages)) => app_state.messages = messages,
             Ok(_) => {}
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {}

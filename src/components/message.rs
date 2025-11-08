@@ -1,37 +1,29 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    pub timestamp: DateTime<Local>,
+    pub timestamp: DateTime<Utc>,
     pub sender: MessageSender,
     pub content: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageSender {
-    User,
+    User(u32),
     Server,
     System,
 }
 
 impl Message {
-    pub fn new(sender: MessageSender, content: String) -> Self {
-        Self {
-            timestamp: Local::now(),
-            sender,
-            content,
-        }
-    }
-
     pub fn format_time(&self) -> String {
         self.timestamp.format("%H:%M:%S").to_string()
     }
 
-    pub fn sender_name(&self) -> &str {
+    pub fn sender_name(&self) -> String {
         match self.sender {
-            MessageSender::User => "You",
-            MessageSender::Server => "Server",
-            MessageSender::System => "System",
+            MessageSender::User(id) => format!("User: {id}"),
+            MessageSender::Server => "Server".to_string(),
+            MessageSender::System => "System".to_string(),
         }
     }
 }

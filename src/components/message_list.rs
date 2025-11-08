@@ -32,7 +32,7 @@ impl MessageList {
                 .add_modifier(Modifier::DIM);
 
             let (sender_style, content_style) = match message.sender {
-                MessageSender::User => (
+                MessageSender::User(_) => (
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),

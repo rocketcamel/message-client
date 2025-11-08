@@ -1,13 +1,16 @@
 use std::{
+    borrow::Cow,
     error::Error,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use chrono::{DateTime, Utc};
+use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 
-use crate::components::Message;
+use crate::components::{Message, MessageSender};
 
 pub enum NetworkRequest {
     Authenticate(AuthRequest),
@@ -33,15 +36,35 @@ impl Token {
     }
 }
 
+#[derive(Deserialize)]
+pub struct NetworkMessage {
+    pub id: u32,
+    pub body: String,
+    pub user_id: u32,
+    pub in_reply_to: Option<u32>,
+    pub channel: String,
+    pub created_at: DateTime<Utc>,
+}
+
 pub enum NetworkResponse {
-    AuthSuccess(Token),
-    AuthError { error: String },
+    Auth(Token),
     MessageSent,
-    MessagesReceived { messages: Vec<Message> },
+    MessagesReceived(Vec<Message>),
+    Error(NetworkError),
 }
 
 #[derive(Debug, Error)]
-enum AuthError {
+pub enum NetworkError {
+    #[error("error occured with request: {0}")]
+    RequestError(#[from] reqwest::Error),
+    #[error("error deserializing: {0}")]
+    Deserialize(#[source] reqwest::Error),
+    #[error("error authenticating: {0}")]
+    Auth(#[from] AuthError),
+}
+
+#[derive(Debug, Error)]
+pub(crate) enum AuthError {
     #[error("error with request")]
     Request(#[from] reqwest::Error),
     #[error("error deserializing response")]
@@ -80,21 +103,52 @@ impl NetworkTask {
             match req {
                 NetworkRequest::Authenticate(auth_req) => match self.auth(&auth_req).await {
                     Ok(token) => {
-                        resp_tx.send(NetworkResponse::AuthSuccess(token)).ok();
+                        resp_tx.send(NetworkResponse::Auth(token)).ok();
                     }
                     Err(e) => {
                         resp_tx
-                            .send(NetworkResponse::AuthError {
-                                error: format!("{e:?}"),
-                            })
+                            .send(NetworkResponse::Error(NetworkError::Auth(e)))
                             .ok();
                     }
                 },
                 NetworkRequest::SendMessage { content: _ } => todo!(),
-                NetworkRequest::FetchMessages => todo!(),
+                NetworkRequest::FetchMessages => match self.fetch_messages().await {
+                    Ok(messages) => {
+                        resp_tx
+                            .send(NetworkResponse::MessagesReceived(
+                                messages
+                                    .iter()
+                                    .map(|m| Message {
+                                        timestamp: m.created_at,
+                                        sender: MessageSender::User(m.user_id),
+                                        content: m.body.clone(),
+                                    })
+                                    .collect::<Vec<Message>>(),
+                            ))
+                            .ok();
+                    }
+                    Err(e) => {
+                        resp_tx.send(NetworkResponse::Error(e)).ok();
+                    }
+                },
                 NetworkRequest::RefreshToken => todo!(),
             }
         }
+    }
+
+    async fn fetch_messages(&self) -> Result<Vec<NetworkMessage>, NetworkError> {
+        let response: Response = self
+            .client
+            .get(format!("{}/messages", self.base_url))
+            .send()
+            .await?;
+        response.error_for_status_ref()?;
+        let messages = response
+            .json::<Vec<NetworkMessage>>()
+            .await
+            .map_err(|e| NetworkError::Deserialize(e))?;
+
+        Ok(messages)
     }
 
     async fn auth(&self, auth_req: &AuthRequest) -> Result<Token, AuthError> {

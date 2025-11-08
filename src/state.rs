@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
+
 use crate::{
     components::{ConnectionStatus, Message, MessageSender},
     network::Token,
@@ -26,10 +28,11 @@ impl AppState {
     pub fn new() -> Self {
         let mut messages = Vec::new();
 
-        messages.push(Message::new(
-            MessageSender::System,
-            "Welcome to Message Client! Start typing to send messages.".to_string(),
-        ));
+        messages.push(Message {
+            sender: MessageSender::System,
+            content: "Welcome to Message Client! Start typing to send messages.".to_string(),
+            timestamp: Utc::now(),
+        });
 
         Self {
             messages,
@@ -51,14 +54,25 @@ impl AppState {
         self.session_token = token;
     }
 
-    pub fn add_message(&mut self, sender: MessageSender, content: String) {
-        self.messages.push(Message::new(sender, content));
+    pub fn add_message(
+        &mut self,
+        sender: MessageSender,
+        content: String,
+        timestamp: DateTime<Utc>,
+    ) {
+        self.messages.push(Message {
+            sender,
+            content,
+            timestamp,
+        });
     }
 
     pub fn send_message(&mut self) {
-        if !self.input_buffer.trim().is_empty() {
+        if !self.input_buffer.trim().is_empty()
+            && let Some(token) = &self.session_token
+        {
             let message = self.input_buffer.clone();
-            self.add_message(MessageSender::User, message);
+            self.add_message(MessageSender::User(token.user_id), message, Utc::now());
             self.input_buffer.clear();
             self.cursor_position = 0;
         }
