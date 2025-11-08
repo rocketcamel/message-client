@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -17,9 +17,7 @@ use tui::{
 };
 
 use crate::{
-    components::{
-        Config, ConnectionStatus, InputBox, Message, MessageList, MessageSender, StatusBar,
-    },
+    components::{Config, ConnectionStatus, InputBox, MessageList, StatusBar},
     network::AuthRequest,
     state::{AppState, FocusedItem},
 };
@@ -86,7 +84,7 @@ async fn main() -> std::io::Result<()> {
     let message_list = MessageList::new(app_state.clone());
     let input_box = InputBox::new(app_state.clone());
     let status_bar = StatusBar::new(app_state.clone());
-    let mut config = Config::new(app_state.clone());
+    let mut config = Config::new();
 
     loop {
         terminal.draw(|f| {
@@ -170,6 +168,7 @@ async fn main() -> std::io::Result<()> {
         if app_state.connection_status == ConnectionStatus::Disconnected
             && should_reconnect(&app_state)
         {
+            app_state.connection_status = ConnectionStatus::Connecting;
             req_tx
                 .send(NetworkRequest::Authenticate(AuthRequest {
                     name: config.username.clone(),

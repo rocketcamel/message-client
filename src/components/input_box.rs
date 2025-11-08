@@ -24,11 +24,6 @@ impl InputBox {
         }
     }
 
-    pub fn with_focus(mut self, focused: bool) -> Self {
-        self.is_focused = focused;
-        self
-    }
-
     pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
         let state = self.app_state.borrow();
         let border_style = if self.is_focused {

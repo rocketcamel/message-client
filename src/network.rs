@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    error::Error,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 use reqwest::Response;
@@ -12,14 +8,8 @@ use tokio::sync::mpsc;
 
 use crate::components::{Message, MessageSender};
 
-pub enum NetworkRequest {
-    Authenticate(AuthRequest),
-    SendMessage { content: String },
-    FetchMessages,
-    RefreshToken,
-}
-
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Token {
     pub token: String,
     pub user_id: u32,
@@ -37,7 +27,8 @@ impl Token {
 }
 
 #[derive(Deserialize)]
-pub struct NetworkMessage {
+#[allow(dead_code)]
+pub struct ServerMessage {
     pub id: u32,
     pub body: String,
     pub user_id: u32,
@@ -46,6 +37,15 @@ pub struct NetworkMessage {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
+pub enum NetworkRequest {
+    Authenticate(AuthRequest),
+    SendMessage { content: String },
+    FetchMessages,
+    RefreshToken,
+}
+
+#[allow(dead_code)]
 pub enum NetworkResponse {
     Auth(Token),
     MessageSent,
@@ -136,7 +136,7 @@ impl NetworkTask {
         }
     }
 
-    async fn fetch_messages(&self) -> Result<Vec<NetworkMessage>, NetworkError> {
+    async fn fetch_messages(&self) -> Result<Vec<ServerMessage>, NetworkError> {
         let response: Response = self
             .client
             .get(format!("{}/messages", self.base_url))
@@ -144,7 +144,7 @@ impl NetworkTask {
             .await?;
         response.error_for_status_ref()?;
         let messages = response
-            .json::<Vec<NetworkMessage>>()
+            .json::<Vec<ServerMessage>>()
             .await
             .map_err(|e| NetworkError::Deserialize(e))?;
 

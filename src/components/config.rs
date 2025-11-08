@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use tui::{
     Frame,
     backend::Backend,
@@ -8,8 +6,6 @@ use tui::{
     text::{Span, Spans},
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
-
-use crate::state::AppState;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConfigField {
@@ -25,11 +21,10 @@ pub struct Config {
     focused_field: ConfigField,
     cursor_position: usize,
     is_visible: bool,
-    app_state: Rc<RefCell<AppState>>,
 }
 
 impl Config {
-    pub fn new(app_state: Rc<RefCell<AppState>>) -> Self {
+    pub fn new() -> Self {
         Self {
             username: String::new(),
             password: String::new(),
@@ -37,7 +32,6 @@ impl Config {
             focused_field: ConfigField::Username,
             cursor_position: 0,
             is_visible: false,
-            app_state,
         }
     }
 
@@ -114,15 +108,6 @@ impl Config {
 
     pub fn close(&mut self) {
         self.is_visible = false;
-    }
-
-    pub fn clear_field(&mut self) {
-        match self.focused_field {
-            ConfigField::Username => self.username.clear(),
-            ConfigField::Password => self.password.clear(),
-            ConfigField::ServerUrl => self.server_url.clear(),
-        }
-        self.cursor_position = 0;
     }
 
     pub fn render<B: Backend>(&self, f: &mut Frame<B>) {

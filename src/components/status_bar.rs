@@ -16,7 +16,6 @@ pub enum ConnectionStatus {
     Connected,
     Disconnected,
     Connecting,
-    Error(String),
 }
 
 pub struct StatusBar {
@@ -34,7 +33,6 @@ impl StatusBar {
             ConnectionStatus::Connected => ("Connected", Color::Green),
             ConnectionStatus::Disconnected => ("Disconnected", Color::Red),
             ConnectionStatus::Connecting => ("Connecting...", Color::Yellow),
-            ConnectionStatus::Error(err) => (err.as_str(), Color::Red),
         };
 
         let spans = Spans::from(vec![

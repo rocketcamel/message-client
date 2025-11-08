@@ -10,7 +10,6 @@ pub struct Message {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageSender {
     User(u32),
-    Server,
     System,
 }
 
@@ -22,7 +21,6 @@ impl Message {
     pub fn sender_name(&self) -> String {
         match self.sender {
             MessageSender::User(id) => format!("User: {id}"),
-            MessageSender::Server => "Server".to_string(),
             MessageSender::System => "System".to_string(),
         }
     }

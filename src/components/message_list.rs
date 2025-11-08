@@ -11,7 +11,7 @@ use tui::{
 
 use crate::state::AppState;
 
-use super::message::{Message, MessageSender};
+use super::message::MessageSender;
 
 pub struct MessageList {
     app_state: Rc<RefCell<AppState>>,
@@ -35,12 +35,6 @@ impl MessageList {
                 MessageSender::User(_) => (
                     Style::default()
                         .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                    Style::default().fg(Color::White),
-                ),
-                MessageSender::Server => (
-                    Style::default()
-                        .fg(Color::Green)
                         .add_modifier(Modifier::BOLD),
                     Style::default().fg(Color::White),
                 ),
