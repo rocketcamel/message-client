@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -29,6 +29,7 @@ use crate::{
 mod components;
 mod input;
 mod network;
+mod poll;
 mod state;
 mod tracing_writer;
 
@@ -85,6 +86,11 @@ async fn main() -> std::io::Result<()> {
     let input_box = InputBox::new(app_state.clone());
     let status_bar = StatusBar::new(app_state.clone());
     let mut config = Config::new();
+
+    let req_tx_messages = req_tx.clone();
+    let mut messages_poll = poll::Poll::new(Duration::from_secs(10), move || {
+        req_tx_messages.send(NetworkRequest::FetchMessages).ok();
+    });
 
     loop {
         terminal.draw(|f| {
@@ -168,7 +174,6 @@ async fn main() -> std::io::Result<()> {
         if app_state.connection_status == ConnectionStatus::Disconnected
             && should_reconnect(&app_state)
         {
-            app_state.connection_status = ConnectionStatus::Connecting;
             req_tx
                 .send(NetworkRequest::Authenticate(AuthRequest {
                     name: config.username.clone(),
@@ -177,6 +182,8 @@ async fn main() -> std::io::Result<()> {
                 .ok();
             app_state.last_reconnect = Some(tokio::time::Instant::now())
         }
+
+        messages_poll.poll();
 
         match resp_rx.try_recv() {
             Ok(NetworkResponse::Auth(token)) => {
