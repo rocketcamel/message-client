@@ -55,7 +55,11 @@ async fn main() -> std::io::Result<()> {
     let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<NetworkResponse>();
 
     let tracing_env_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
+        .with_default_directive(if cfg!(debug_assertions) {
+            LevelFilter::INFO.into()
+        } else {
+            LevelFilter::ERROR.into()
+        })
         .from_env_lossy();
 
     let buffered_writer = tracing_writer::BufferedWriter::new();
@@ -78,12 +82,6 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(async move {
         network::NetworkTask::new().run(req_rx, resp_tx).await;
     });
-    // if let Err(e) = req_tx.send(NetworkRequest::Authenticate(AuthRequest {
-    //     name: "example".to_string(),
-    //     password: std::env::var("PASSWORD").expect("\"PASSWORD\" environment variable"),
-    // })) {
-    //     tracing::error!("error sending authentication request: {e}")
-    // }
 
     let message_list = MessageList::new(app_state.clone());
     let input_box = InputBox::new(app_state.clone());
@@ -184,14 +182,12 @@ async fn main() -> std::io::Result<()> {
         match resp_rx.try_recv() {
             Ok(NetworkResponse::AuthSuccess(token)) => app_state.update_session(Some(token)),
             Ok(NetworkResponse::AuthError { error }) => {
-                tracing::error!("error authenticating: {error}")
+                tracing::warn!("error authenticating: {error}")
             }
             Ok(_) => {}
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {}
         }
-
-        // tokio::time::sleep(Duration::from_micros(1)).await;
     }
 
     disable_raw_mode()?;
