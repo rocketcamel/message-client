@@ -1,4 +1,8 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use chrono::{DateTime, Utc};
 use reqwest::Response;
@@ -14,6 +18,8 @@ pub struct Token {
     pub token: String,
     pub user_id: u32,
     pub expiry: u64,
+    #[serde(skip)]
+    pub username: Option<Arc<str>>,
 }
 
 impl Token {
@@ -35,6 +41,12 @@ pub struct ServerMessage {
     pub in_reply_to: Option<u32>,
     pub channel: String,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct User {
+    id: u32,
+    name: String,
 }
 
 #[allow(dead_code)]
@@ -82,6 +94,7 @@ pub struct AuthRequest {
 pub struct NetworkTask {
     client: reqwest::Client,
     base_url: String,
+    users_map: HashMap<u32, Arc<str>>,
 }
 
 impl NetworkTask {
@@ -91,11 +104,12 @@ impl NetworkTask {
             base_url: std::env::var("BASE_URL").unwrap_or(
                 "http://ec2-44-250-68-143.us-west-2.compute.amazonaws.com:8000".to_string(),
             ),
+            users_map: HashMap::new(),
         }
     }
 
     pub async fn run(
-        &self,
+        &mut self,
         mut req_rx: mpsc::UnboundedReceiver<NetworkRequest>,
         resp_tx: mpsc::UnboundedSender<NetworkResponse>,
     ) {
@@ -122,6 +136,7 @@ impl NetworkTask {
                                         timestamp: m.created_at,
                                         sender: MessageSender::User(m.user_id),
                                         content: m.body.clone(),
+                                        username: self.users_map.get(&m.user_id).cloned(),
                                     })
                                     .collect::<Vec<Message>>(),
                             ))
@@ -151,7 +166,7 @@ impl NetworkTask {
         Ok(messages)
     }
 
-    async fn auth(&self, auth_req: &AuthRequest) -> Result<Token, AuthError> {
+    async fn auth(&mut self, auth_req: &AuthRequest) -> Result<Token, AuthError> {
         let response = self
             .client
             .post(format!("{}/auth/login", self.base_url))
@@ -168,7 +183,19 @@ impl NetworkTask {
             });
         }
 
-        let des_response = response.json::<Token>().await?;
+        if self.users_map.is_empty() {
+            let response: Response = self
+                .client
+                .get(format!("{}/users", self.base_url))
+                .send()
+                .await?;
+            response.error_for_status_ref()?;
+            let users = response.json::<Vec<User>>().await?;
+            self.users_map = users.into_iter().map(|u| (u.id, u.name.into())).collect()
+        }
+
+        let mut des_response = response.json::<Token>().await?;
+        des_response.username = self.users_map.get(&des_response.user_id).cloned();
         Ok(des_response)
     }
 }

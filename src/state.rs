@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 
@@ -32,6 +32,7 @@ impl AppState {
             sender: MessageSender::System,
             content: "Welcome to Message Client! Start typing to send messages.".to_string(),
             timestamp: Utc::now(),
+            username: None,
         });
 
         Self {
@@ -59,11 +60,13 @@ impl AppState {
         sender: MessageSender,
         content: String,
         timestamp: DateTime<Utc>,
+        username: Option<Arc<str>>,
     ) {
         self.messages.push(Message {
             sender,
             content,
             timestamp,
+            username,
         });
     }
 
@@ -72,7 +75,12 @@ impl AppState {
             && let Some(token) = &self.session_token
         {
             let message = self.input_buffer.clone();
-            self.add_message(MessageSender::User(token.user_id), message, Utc::now());
+            self.add_message(
+                MessageSender::User(token.user_id),
+                message,
+                Utc::now(),
+                token.username.clone(),
+            );
             self.input_buffer.clear();
             self.cursor_position = 0;
         }
