@@ -7,6 +7,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use reqwest::Response;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
@@ -125,7 +126,14 @@ impl NetworkTask {
                             .ok();
                     }
                 },
-                NetworkRequest::SendMessage { content: _ } => todo!(),
+                NetworkRequest::SendMessage { content } => match self.post_message(content).await {
+                    Ok(_) => {
+                        resp_tx.send(NetworkResponse::MessageSent).ok();
+                    }
+                    Err(e) => {
+                        resp_tx.send(NetworkResponse::Error(e)).ok();
+                    }
+                },
                 NetworkRequest::FetchMessages => match self.fetch_messages().await {
                     Ok(messages) => {
                         resp_tx
@@ -149,6 +157,23 @@ impl NetworkTask {
                 NetworkRequest::RefreshToken => todo!(),
             }
         }
+    }
+
+    async fn post_message(&self, content: String) -> Result<(), NetworkError> {
+        let response = self
+            .client
+            .post(format!("{}/messages", self.base_url))
+            .header("Content-Type", "application/json")
+            .json(&json!(
+                {
+                    "body": content
+                }
+            ))
+            .send()
+            .await?;
+        response.error_for_status_ref()?;
+
+        Ok(())
     }
 
     async fn fetch_messages(&self) -> Result<Vec<ServerMessage>, NetworkError> {

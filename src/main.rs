@@ -123,7 +123,13 @@ async fn main() -> std::io::Result<()> {
             Ok(InputEvent::Quit) => {
                 break;
             }
-            Ok(InputEvent::Submit) => app_state.send_message(),
+            Ok(InputEvent::Submit) => {
+                if let Some(content) = app_state.send_message() {
+                    req_tx
+                        .send(NetworkRequest::SendMessage { content: content })
+                        .ok();
+                };
+            }
             Ok(InputEvent::CharInput(c)) => match app_state.focused_item {
                 FocusedItem::Main => app_state.insert_char(c),
                 FocusedItem::Config => config.insert_char(c),

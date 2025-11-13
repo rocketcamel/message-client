@@ -70,20 +70,22 @@ impl AppState {
         });
     }
 
-    pub fn send_message(&mut self) {
+    pub fn send_message(&mut self) -> Option<String> {
         if !self.input_buffer.trim().is_empty()
             && let Some(token) = &self.session_token
         {
             let message = self.input_buffer.clone();
             self.add_message(
                 MessageSender::User(token.user_id),
-                message,
+                message.clone(),
                 Utc::now(),
                 token.username.clone(),
             );
             self.input_buffer.clear();
             self.cursor_position = 0;
+            return Some(message.clone());
         }
+        None
     }
 
     pub fn insert_char(&mut self, c: char) {
