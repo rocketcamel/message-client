@@ -62,12 +62,15 @@ impl AppState {
         timestamp: DateTime<Utc>,
         username: Option<Arc<str>>,
     ) {
-        self.messages.push(Message {
-            sender,
-            content,
-            timestamp,
-            username,
-        });
+        self.messages.insert(
+            0,
+            Message {
+                sender,
+                content,
+                timestamp,
+                username,
+            },
+        );
     }
 
     pub fn send_message(&mut self) -> Option<String> {
