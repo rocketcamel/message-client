@@ -124,9 +124,14 @@ async fn main() -> std::io::Result<()> {
                 break;
             }
             Ok(InputEvent::Submit) => {
-                if let Some(content) = app_state.send_message() {
+                if let (Some(content), Some(session)) =
+                    (app_state.send_message(), app_state.session_token.clone())
+                {
                     req_tx
-                        .send(NetworkRequest::SendMessage { content: content })
+                        .send(NetworkRequest::SendMessage {
+                            content: content,
+                            session,
+                        })
                         .ok();
                 };
             }

@@ -53,14 +53,17 @@ struct User {
 #[allow(dead_code)]
 pub enum NetworkRequest {
     Authenticate(AuthRequest),
-    SendMessage { content: String },
+    SendMessage {
+        content: String,
+        session: Arc<Token>,
+    },
     FetchMessages,
     RefreshToken,
 }
 
 #[allow(dead_code)]
 pub enum NetworkResponse {
-    Auth(Token),
+    Auth(Arc<Token>),
     MessageSent,
     MessagesReceived(Vec<Message>),
     Error(NetworkError),
@@ -118,7 +121,7 @@ impl NetworkTask {
             match req {
                 NetworkRequest::Authenticate(auth_req) => match self.auth(&auth_req).await {
                     Ok(token) => {
-                        resp_tx.send(NetworkResponse::Auth(token)).ok();
+                        resp_tx.send(NetworkResponse::Auth(token.clone())).ok();
                     }
                     Err(e) => {
                         resp_tx
@@ -126,14 +129,16 @@ impl NetworkTask {
                             .ok();
                     }
                 },
-                NetworkRequest::SendMessage { content } => match self.post_message(content).await {
-                    Ok(_) => {
-                        resp_tx.send(NetworkResponse::MessageSent).ok();
+                NetworkRequest::SendMessage { content, session } => {
+                    match self.post_message(content, &session).await {
+                        Ok(_) => {
+                            resp_tx.send(NetworkResponse::MessageSent).ok();
+                        }
+                        Err(e) => {
+                            resp_tx.send(NetworkResponse::Error(e)).ok();
+                        }
                     }
-                    Err(e) => {
-                        resp_tx.send(NetworkResponse::Error(e)).ok();
-                    }
-                },
+                }
                 NetworkRequest::FetchMessages => match self.fetch_messages().await {
                     Ok(messages) => {
                         resp_tx
@@ -159,11 +164,12 @@ impl NetworkTask {
         }
     }
 
-    async fn post_message(&self, content: String) -> Result<(), NetworkError> {
+    async fn post_message(&self, content: String, session: &Token) -> Result<(), NetworkError> {
         let response = self
             .client
             .post(format!("{}/messages", self.base_url))
             .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", session.token))
             .json(&json!(
                 {
                     "body": content
@@ -191,7 +197,7 @@ impl NetworkTask {
         Ok(messages)
     }
 
-    async fn auth(&mut self, auth_req: &AuthRequest) -> Result<Token, AuthError> {
+    async fn auth(&mut self, auth_req: &AuthRequest) -> Result<Arc<Token>, AuthError> {
         let response = self
             .client
             .post(format!("{}/auth/login", self.base_url))
@@ -221,6 +227,6 @@ impl NetworkTask {
 
         let mut des_response = response.json::<Token>().await?;
         des_response.username = self.users_map.get(&des_response.user_id).cloned();
-        Ok(des_response)
+        Ok(des_response.into())
     }
 }

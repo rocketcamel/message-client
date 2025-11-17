@@ -19,7 +19,7 @@ pub struct AppState {
     pub scroll_offset: u16,
     pub connection_status: ConnectionStatus,
     pub focused_item: FocusedItem,
-    pub session_token: Option<Token>,
+    pub session_token: Option<Arc<Token>>,
     pub last_reconnect: Option<tokio::time::Instant>,
     pub reconnect_duration: Duration,
 }
@@ -48,7 +48,7 @@ impl AppState {
         }
     }
 
-    pub fn update_session(&mut self, token: Option<Token>) {
+    pub fn update_session(&mut self, token: Option<Arc<Token>>) {
         if token.is_some() {
             self.connection_status = ConnectionStatus::Connected;
         }
